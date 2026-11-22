@@ -1,4 +1,4 @@
-import { readBoard, readConfig, readOwned, readPayout, readPlayer, readPot } from './convert.js'
+import { readBoard, readConfig, readOwned, readPayout, readPlayer, readPot, readWinners } from './convert.js'
 import { requestJson, type FetchLike, type HttpMethod, type RawBody } from './http.js'
 import { API_BASE, KEY_HEADER, SDK_HEADER, SESSION_HEADER } from './protocol.js'
 import type {
@@ -132,8 +132,8 @@ export function createApi({ apiKey, apiUrl, fetch, timeoutMs }: ApiOptions) {
         async pot(): Promise<Pot> {
             return readPot(await call<Pot>('GET', '/pot'))
         },
-        winners(day?: string): Promise<Winners> {
-            return call<Winners>('GET', '/winners', { query: { day } })
+        async winners(day?: string): Promise<Winners> {
+            return readWinners(await call<Winners>('GET', '/winners', { query: { day } }))
         },
         payouts(limit?: number): Promise<{ payouts: Payout[] }> {
             return answers.payouts(call<{ payouts: Payout[] }>('GET', '/payouts', { query: { limit } }))

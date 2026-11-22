@@ -1,5 +1,5 @@
 import { answers, type Call } from './api.js'
-import { readOwned, readPayout, readPot, readSettings } from './convert.js'
+import { readOwned, readPayout, readPot, readSettings, readWinners } from './convert.js'
 import { GameError } from './errors.js'
 import type {
     Board,
@@ -64,14 +64,23 @@ export function buildServerApi(call: Call) {
          *         holdMin: 100_000,
          *         prizeShares: [60, 25, 15],
          *         writes: 'server',
-         *         boards: [highScore('main', { isPrize: true }), fastestTime('lap')],
+         *         reset: { timeZone: 'America/New_York', hour: 17 },
+         *         boards: [highScore('main', { isPrize: true, prizePeriod: 'weekly' }), fastestTime('lap')],
          *         items: [{ key: 'gold-ship', name: 'Gold ship', kind: 'skin', slot: 'skin' }],
          *     })
          *
          * @returns the game's settings after the change
          */
-        async configure({ title, holdMin, prizeShares, writes, boards, items }: GameSetup = {}): Promise<GameSettings> {
-            const game = { title, holdMin, shares: prizeShares, writes }
+        async configure({
+            title,
+            holdMin,
+            prizeShares,
+            writes,
+            reset,
+            boards,
+            items,
+        }: GameSetup = {}): Promise<GameSettings> {
+            const game = { title, holdMin, shares: prizeShares, writes, reset }
             check(settingsProblem(game))
             if (boards !== undefined) check(boardsProblem(boards))
             if (items !== undefined) check(itemsProblem(items))
@@ -80,9 +89,12 @@ export function buildServerApi(call: Call) {
             if (items !== undefined && items.length > 0) await call('PUT', '/items', { body: { items } })
             return settings()
         },
-        /** A day's prize places, judged now: the best linked wallets that hold enough. */
-        winners(day: string): Promise<Winners> {
-            return call<Winners>('GET', '/winners', { query: { day } })
+        /**
+         * The prize places of the round holding a day (a day, week or month: the prize board's `prizePeriod`), judged
+         * now: the best linked wallets that hold enough.
+         */
+        async winners(day: string): Promise<Winners> {
+            return readWinners(await call<Winners>('GET', '/winners', { query: { day } }))
         },
         /**
          * Posts a score your server has checked, to 'main' or to `board`. Pass the player's `session` to put it

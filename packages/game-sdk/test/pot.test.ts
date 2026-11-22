@@ -3,7 +3,14 @@ import { PotWatch } from '../src/pot.js'
 import type { Pot } from '../src/types.js'
 
 const START = Date.UTC(2026, 0, 1, 23, 59, 0)
-const pot = (endsAt: number): Pot => ({ day: '2026-01-01', eth: 1, usd: 3000, endsAt })
+const pot = (endsAt: number): Pot => ({
+    day: '2026-01-01',
+    period: 'daily',
+    key: '2026-01-01',
+    eth: 1,
+    usd: 3000,
+    endsAt,
+})
 
 beforeEach(() => {
     vi.useFakeTimers()

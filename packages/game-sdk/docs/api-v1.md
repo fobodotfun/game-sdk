@@ -49,7 +49,8 @@ type Board = {
 - Ties: whoever reached the value first (the API keeps the order scores arrived in, so two posts in the same second
   still rank in order). Posting a `latest` value equal to the one kept changes nothing, the place in a tie included.
 - A `sum` that would pass `2^53-1`: plain 400.
-- Periods are UTC. Period keys: daily `YYYY-MM-DD`, weekly ISO `YYYY-Www`, monthly `YYYY-MM`, all-time `all`.
+- Periods follow the game's reset (`reset: { timeZone, hour }`, default `{ timeZone: 'UTC', hour: 0 }`: any IANA zone, a
+  whole hour 0-23): a game day starts at that hour on that zone's clock, weeks on Monday, months on the 1st. Period keys: daily `YYYY-MM-DD`, weekly ISO `YYYY-Www`, monthly `YYYY-MM`, all-time `all`.
 
 Presets the SDK exports (plain `Board` fragments):
 
@@ -210,10 +211,18 @@ What the sections above leave open, fixed here so the site and the SDK agree.
   The signature is checked before the nonce is used up: a wrong signature is 401 and the nonce still works; a
   nonce that is unknown, used or expired is 401. `POST /link` answers the full address in lower case to the page
   that just signed with it; `POST /player` answers it shortened.
+- Inside fobo.fun's frame the `signature` is fobo.fun's own vouch for the wallet signed in there (hex, bound to the
+  game's host and the nonce, short-lived), not a wallet signature: the player signs nothing. The API takes either in
+  the same field, so every SDK version links both ways.
 - Auth statuses: an unknown or missing publishable key 401; a missing, unknown or expired session 401; a wrong
   secret key 401; a secret-key route called without one 401; a write with no `Origin` and no secret key 401.
-- `GET /pot` and `GET /winners` take `?day=YYYY-MM-DD` (default today, UTC). `POST /pot` (secret key)
-  `{ day?, eth, usd }`: both amounts are numbers from 0 (as today).
+- `GET /pot` and `GET /winners` take `?day=YYYY-MM-DD` (default the game's today). The prize runs on the prize
+  board's `prizePeriod` (`daily` by default, or `weekly` / `monthly`; the board must keep that period): a day stands
+  for the round holding it. Both answer `day`, `period` and `key` (the round's period key; pots and payouts are kept
+  under it); `endsAt` is when the round ends. `POST /pot` (secret key) `{ day?, eth, usd }`: both amounts are numbers
+  from 0 (as today).
+- `GET /config` and `GET /game` answer `reset`; `PUT /game` takes `reset`. `dayEndsAt` is the end of the game's day.
+  An API from before 0.2.0 sends none of these: the SDK reads it as daily, `{ timeZone: 'UTC', hour: 0 }`.
 - `POST /payouts` (secret key) `{ day, place, address, amountWei, txHash }`: `place` is 1..the number of places in
   `shares`; a transaction is recorded once (sending it again answers the same record; one recorded for another
   game is a plain 400). `GET /payouts?limit=`: 1..50, default 10, newest first.

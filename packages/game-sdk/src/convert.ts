@@ -1,5 +1,6 @@
 import { MAIN_BOARD } from './boards.js'
-import type { Board, BoardEntry, GameConfig, GameSettings, OwnedItem, Payout, Player, Pot } from './types.js'
+import { DEFAULT_RESET } from './days.js'
+import type { Board, BoardEntry, GameConfig, GameSettings, OwnedItem, Payout, Player, Pot, Winners } from './types.js'
 
 /** The API tells time in seconds; the SDK hands out milliseconds, like Date.now(). */
 const toMs = (seconds: number | undefined): number => (seconds ?? 0) * 1000
@@ -14,6 +15,7 @@ export function readConfig(config: Partial<GameConfig> & Pick<GameConfig, 'dayEn
         boards: config.boards ?? [MAIN_BOARD],
         apiVersion: config.apiVersion ?? 1,
         paysRewards: config.paysRewards ?? false,
+        reset: config.reset ?? DEFAULT_RESET,
         dayEndsAt: toMs(config.dayEndsAt),
     }
 }
@@ -36,7 +38,19 @@ export const readBoard = (board: Board): Board => ({
 })
 
 /** A pot as the SDK returns it. */
-export const readPot = (pot: Pot): Pot => ({ ...pot, endsAt: toMs(pot.endsAt) })
+export const readPot = (pot: Pot): Pot => ({
+    ...pot,
+    period: pot.period ?? 'daily',
+    key: pot.key ?? pot.day,
+    endsAt: toMs(pot.endsAt),
+})
+
+/** A round's winners as the SDK returns them. An API from before prize periods judged every day. */
+export const readWinners = (winners: Winners): Winners => ({
+    ...winners,
+    period: winners.period ?? 'daily',
+    key: winners.key ?? winners.day,
+})
 
 /** A payout as the SDK returns it. */
 export const readPayout = (payout: Payout): Payout => ({ ...payout, at: toMs(payout.at) })
@@ -52,6 +66,7 @@ export const readPlayer = (player: Player): Player => ({
 export const readSettings = (settings: GameSettings): GameSettings => ({
     ...settings,
     holdMin: Number(settings.holdMin),
+    reset: settings.reset ?? DEFAULT_RESET,
     boards: settings.boards ?? [MAIN_BOARD],
     items: settings.items ?? [],
 })

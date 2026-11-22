@@ -1,6 +1,8 @@
 # Prizes
 
-A game can have a daily prize. One board is the prize board (`isPrize: true`, `main` unless you change it). It closes at 00:00 UTC, and the best linked wallets that hold enough of the token take the prize places.
+A game can have a prize: every day, every week or every month, your choice. One board is the prize board (`isPrize: true`, `main` unless you change it). When its round closes, the best linked wallets that hold enough of the token take the prize places.
+
+Out of the box the prize is daily and the day turns over at 00:00 UTC. Both are yours to change (see below).
 
 Whether a game pays rewards at all is switched on by the token's creator on fobo.fun (`paysRewards`). Everything else is yours to set:
 
@@ -12,14 +14,31 @@ await server.configure({
 })
 ```
 
+## How often, and when the day resets
+
+```js
+import { highScore } from '@fobo/game-sdk'
+
+await server.configure({
+    // the game's day turns over at 5pm New York time (clock changes are handled for you)
+    reset: { timeZone: 'America/New_York', hour: 17 },
+    // a weekly prize: the prize board must keep that period
+    boards: [highScore('main', { isPrize: true, prizePeriod: 'weekly', periods: ['daily', 'weekly', 'all'] })],
+})
+```
+
+- `reset`: any IANA time zone and a whole hour, 0-23. Default `{ timeZone: 'UTC', hour: 0 }`. It moves every board's day, week and month, from now on (rows already written keep their keys).
+- `prizePeriod`: `'daily'` (default), `'weekly'` (Monday to Sunday) or `'monthly'`.
+- Sending the prize is always your own server's job: fobo.fun only keeps the pot, the winners and the payouts you report.
+
 ## Show it in the game
 
 ```js
 import { formatCountdown, formatEth } from '@fobo/game-sdk/format'
 
-await game.config() // { title, ticker, holdMin, shares, writes, paysRewards, boards, dayEndsAt }
-await game.pot() // today's prize: { day, eth, usd, endsAt }
-await game.winners('2026-11-20') // { winners: [{ place, name, address, sharePct }], unclaimedPct }
+await game.config() // { title, ticker, holdMin, shares, writes, paysRewards, boards, reset, dayEndsAt }
+await game.pot() // this round's prize: { day, period, key, eth, usd, endsAt }
+await game.winners('2026-11-20') // the round holding that day: { period, key, winners: [{ place, name, address, sharePct }], unclaimedPct }
 await game.payouts() // prizes paid, newest first
 
 // a banner that counts down

@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://unpkg.com/@fobo/game-sdk@0.1.1/assets/logo.png" alt="FOBO Game SDK" width="120" />
+    <img src="https://unpkg.com/@fobo/game-sdk@0.2.0/assets/logo.png" alt="FOBO Game SDK" width="120" />
 </p>
 
 <h1 align="center">@fobo/game-sdk</h1>
@@ -8,7 +8,7 @@
 
 <p align="center">
     <a href="https://www.npmjs.com/package/@fobo/game-sdk"><img src="https://img.shields.io/npm/v/@fobo/game-sdk?color=5CFFE4&label=npm" alt="npm version" /></a>
-    <a href="https://unpkg.com/@fobo/game-sdk@0.1.1/LICENSE"><img src="https://img.shields.io/npm/l/@fobo/game-sdk?color=blue" alt="MIT licence" /></a>
+    <a href="https://unpkg.com/@fobo/game-sdk@0.2.0/LICENSE"><img src="https://img.shields.io/npm/l/@fobo/game-sdk?color=blue" alt="MIT licence" /></a>
     <a href="https://www.npmjs.com/package/@fobo/game-sdk"><img src="https://img.shields.io/npm/types/@fobo/game-sdk" alt="TypeScript types included" /></a>
     <a href="https://www.npmjs.com/package/@fobo/game-sdk?activeTab=dependencies"><img src="https://img.shields.io/badge/dependencies-0-brightgreen" alt="zero dependencies" /></a>
 </p>
@@ -23,7 +23,7 @@ No build step? Import the one-file browser build:
 
 ```html
 <script type="module">
-    import { createGame } from 'https://unpkg.com/@fobo/game-sdk@0.1.1/dist/browser/game-sdk.js'
+    import { createGame } from 'https://unpkg.com/@fobo/game-sdk@0.2.0/dist/browser/game-sdk.js'
 </script>
 ```
 
@@ -60,16 +60,16 @@ console.log(board.top) // [{ name: 'ACE', score: 1200, ... }]
 
 | Call                                                                    | What it does                                         | Guide                                                                       |
 | ----------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| `game.submitRun({ name, score })`                                       | 🏆 posts a score, returns the board                  | [Leaderboards](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/leaderboards.md) |
-| `game.board({ board, name })`                                           | 🏆 a board's ranking and the player's own row        | [Leaderboards](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/leaderboards.md) |
-| `game.link()`                                                           | 👛 links the player's wallet with one signed message | [Wallets](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/wallets.md)           |
-| `game.player.get()` / `setName()` / `setAvatar()`                       | 👤 the player's name and picture                     | [Players](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/players.md)           |
-| `game.items.catalog()` / `mine()` / `grant()` / `consume()` / `equip()` | 🎒 skins, badges, things a player can use up         | [Items](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/items.md)               |
-| `game.save.get()` / `set()` / `remove()`                                | 💾 progress and settings, the same on every device   | [Saved data](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/saved-data.md)     |
-| `game.pot()` / `winners()` / `payouts()`                                | 💰 the daily prize, if the creator turned it on      | [Prizes](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/prizes.md)             |
-| `game.startRun()`                                                       | 🛡️ a one-time run ticket from your server            | [Anti-cheat](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/anti-cheat.md)     |
+| `game.submitRun({ name, score })`                                       | 🏆 posts a score, returns the board                  | [Leaderboards](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/leaderboards.md) |
+| `game.board({ board, name })`                                           | 🏆 a board's ranking and the player's own row        | [Leaderboards](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/leaderboards.md) |
+| `game.link()`                                                           | 👛 links the player's wallet with one signed message | [Wallets](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/wallets.md)           |
+| `game.player.get()` / `setName()` / `setAvatar()`                       | 👤 the player's name and picture                     | [Players](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/players.md)           |
+| `game.items.catalog()` / `mine()` / `grant()` / `consume()` / `equip()` | 🎒 skins, badges, things a player can use up         | [Items](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/items.md)               |
+| `game.save.get()` / `set()` / `remove()`                                | 💾 progress and settings, the same on every device   | [Saved data](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/saved-data.md)     |
+| `game.pot()` / `winners()` / `payouts()`                                | 💰 the prize (daily, weekly, monthly), if turned on  | [Prizes](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/prizes.md)             |
+| `game.startRun()`                                                       | 🛡️ a one-time run ticket from your server            | [Anti-cheat](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/anti-cheat.md)     |
 
-- A failed call throws a `GameError` with a message you can show the player: [Errors](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/errors.md).
+- A failed call throws a `GameError` with a message you can show the player: [Errors](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/errors.md).
 - Up to 100 boards per game: high score, fastest time, daily, weekly, monthly and all-time.
 
 ## 🛡️ Anti-cheat
@@ -103,7 +103,7 @@ const moves = await letThePlayerPlay(ticket.seed)
 await game.submitRun({ name: 'ACE', score, run: { ticket: ticket.id, inputs: moves } })
 ```
 
-⚠️ A game that pays prizes needs both the verifier and `writes: 'server'`. Full guide, with ticket stores for Cloudflare: [Anti-cheat](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/anti-cheat.md).
+⚠️ A game that pays prizes needs both the verifier and `writes: 'server'`. Full guide, with ticket stores for Cloudflare: [Anti-cheat](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/anti-cheat.md).
 
 ## 👛 Wallets
 
@@ -128,7 +128,7 @@ game.useConnector(
 )
 ```
 
-Privy and wagmi examples: [Wallets](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/wallets.md).
+Privy and wagmi examples: [Wallets](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/wallets.md).
 
 ## 🖥️ Server
 
@@ -166,17 +166,17 @@ In a page, `createGame({ test: { boards, items, writes: 'server', replay: playRu
 
 ## 📚 Docs
 
-- 🏆 [Leaderboards](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/leaderboards.md)
-- 👤 [Players](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/players.md)
-- 🎒 [Items](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/items.md)
-- 💾 [Saved data](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/saved-data.md)
-- 💰 [Prizes](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/prizes.md)
-- 🛡️ [Anti-cheat](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/anti-cheat.md)
-- 👛 [Wallets](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/wallets.md)
-- ❗ [Errors](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/errors.md)
-- 🔖 [Versioning](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/versioning.md)
-- 🔌 [API v1](https://unpkg.com/@fobo/game-sdk@0.1.1/docs/api-v1.md): every route the SDK calls
-- 🤖 [`llms.txt`](https://unpkg.com/@fobo/game-sdk@0.1.1/llms.txt): the whole SDK on one page, for AI assistants
+- 🏆 [Leaderboards](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/leaderboards.md)
+- 👤 [Players](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/players.md)
+- 🎒 [Items](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/items.md)
+- 💾 [Saved data](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/saved-data.md)
+- 💰 [Prizes](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/prizes.md)
+- 🛡️ [Anti-cheat](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/anti-cheat.md)
+- 👛 [Wallets](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/wallets.md)
+- ❗ [Errors](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/errors.md)
+- 🔖 [Versioning](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/versioning.md)
+- 🔌 [API v1](https://unpkg.com/@fobo/game-sdk@0.2.0/docs/api-v1.md): every route the SDK calls
+- 🤖 [`llms.txt`](https://unpkg.com/@fobo/game-sdk@0.2.0/llms.txt): the whole SDK on one page, for AI assistants
 
 All of it ships inside the package too: `node_modules/@fobo/game-sdk/docs`.
 

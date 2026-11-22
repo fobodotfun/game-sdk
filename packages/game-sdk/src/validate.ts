@@ -7,7 +7,8 @@
 import { GameError } from './errors.js'
 import { isRecord, jsonBytes } from './json.js'
 import { MAIN_BOARD } from './boards.js'
-import type { BoardPeriod } from './types.js'
+import { isTimeZone } from './days.js'
+import type { BoardPeriod, PrizePeriod } from './types.js'
 
 export const LIMITS = {
     /** A score's `meta`, as JSON. */
@@ -36,6 +37,7 @@ export const LIMITS = {
     titleLength: 40,
     /** Places in a prize split. */
     prizePlaces: 10,
+    timeZone: 64,
 } as const
 
 export const NAME_PATTERN = /^[A-Za-z0-9_.-](?:[A-Za-z0-9 _.-]{0,14}[A-Za-z0-9_.-])?$/
@@ -48,6 +50,7 @@ export const BOARD_SORTS: readonly string[] = ['desc', 'asc']
 export const BOARD_MODES: readonly string[] = ['best', 'sum', 'latest']
 export const BOARD_FORMATS: readonly string[] = ['number', 'time', 'decimal']
 export const BOARD_PERIODS: readonly BoardPeriod[] = ['daily', 'weekly', 'monthly', 'all']
+export const PRIZE_PERIODS: readonly PrizePeriod[] = ['daily', 'weekly', 'monthly']
 export const AVATAR_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 
 /** What is wrong with a value. `code` is set when the API has its own code for it. */
@@ -117,7 +120,7 @@ export const limitProblem = (limit: unknown): Problem =>
 /** One board's definition. */
 export function boardProblem(board: unknown): Problem {
     if (!isRecord(board)) return bad('a board must be an object')
-    const { key, title, sort, mode, format, decimals, unit, periods, isPrize } = board
+    const { key, title, sort, mode, format, decimals, unit, periods, isPrize, prizePeriod } = board
     const where = `board ${JSON.stringify(key)}:`
     if (boardKeyProblem(key)) return boardKeyProblem(key)
     if (!isText(title, LIMITS.boardTitle)) return bad(`${where} title must be 1-${LIMITS.boardTitle} characters`)
@@ -140,8 +143,11 @@ export function boardProblem(board: unknown): Problem {
         return bad(`${where} periods must list at least one of ${BOARD_PERIODS.join(', ')}`)
     if (new Set(periods).size !== periods.length) return bad(`${where} periods must not repeat`)
     if (isPrize !== undefined && typeof isPrize !== 'boolean') return bad(`${where} isPrize must be true or false`)
-    if (isPrize === true && !periods.includes('daily'))
-        return bad(`${where} the prize board must keep the 'daily' period`)
+    if (prizePeriod !== undefined && !PRIZE_PERIODS.includes(prizePeriod as PrizePeriod))
+        return bad(`${where} prizePeriod must be one of ${PRIZE_PERIODS.join(', ')}`)
+    if (prizePeriod !== undefined && isPrize !== true) return bad(`${where} only the prize board has a prizePeriod`)
+    if (isPrize === true && !periods.includes(prizePeriod ?? 'daily'))
+        return bad(`${where} the prize board must keep its prize period ('${String(prizePeriod ?? 'daily')}')`)
     return null
 }
 
@@ -305,14 +311,26 @@ export function sharesProblem(shares: unknown): Problem {
 export const writesProblem = (writes: unknown): Problem =>
     writes === 'client' || writes === 'server' ? null : bad("writes must be 'client' or 'server'")
 
+/** When a game's day turns over: a real time zone and a whole hour, 0-23. */
+export function resetProblem(reset: unknown): Problem {
+    if (!isRecord(reset)) return bad('reset must be { timeZone, hour }')
+    const { timeZone, hour } = reset
+    if (typeof hour !== 'number' || !Number.isInteger(hour) || hour < 0 || hour > 23)
+        return bad('reset.hour must be a whole hour, 0-23')
+    return typeof timeZone === 'string' && timeZone !== '' && timeZone.length <= LIMITS.timeZone && isTimeZone(timeZone)
+        ? null
+        : bad('reset.timeZone must be a time zone like UTC or America/New_York')
+}
+
 /** The body of PUT /game: only known fields, each one valid. */
 export function settingsProblem(settings: unknown): Problem {
     if (!isRecord(settings)) return bad('the settings must be an object')
-    const { title, holdMin, shares, writes } = settings
+    const { title, holdMin, shares, writes, reset } = settings
     return (
         (title === undefined ? null : titleProblem(title)) ??
         (holdMin === undefined ? null : holdMinProblem(holdMin)) ??
         (shares === undefined ? null : sharesProblem(shares)) ??
-        (writes === undefined ? null : writesProblem(writes))
+        (writes === undefined ? null : writesProblem(writes)) ??
+        (reset === undefined ? null : resetProblem(reset))
     )
 }

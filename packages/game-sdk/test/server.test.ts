@@ -66,7 +66,7 @@ describe('createServerClient', () => {
     it('reports the pot and records payouts once, times in milliseconds', async () => {
         const { server, page } = setup()
         const pot = await server.setPot({ day: DAY, eth: 0.5, usd: 1500 })
-        expect(pot).toEqual({ day: DAY, eth: 0.5, usd: 1500, endsAt: Date.UTC(2026, 0, 2) })
+        expect(pot).toEqual({ day: DAY, period: 'daily', key: DAY, eth: 0.5, usd: 1500, endsAt: Date.UTC(2026, 0, 2) })
         expect(await page(TEST_ADDRESS).pot()).toEqual(pot)
 
         const payout = { day: DAY, place: 1, address: TEST_ADDRESS, amountWei: 300000000000000000n, txHash: TX_HASH }

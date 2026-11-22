@@ -1,6 +1,6 @@
 {
     "name": "@fobo/game-sdk",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "description": "Leaderboards, player profiles, saved data, items and wallet linking for games on fobo.fun",
     "license": "MIT",
     "author": "The fobo.fun team (https://fobo.fun)",

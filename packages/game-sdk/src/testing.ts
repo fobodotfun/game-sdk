@@ -3,6 +3,7 @@
  * `createTestGame()` is the real SDK talking to this mock, so what works here works against fobo.fun.
  */
 import { MAIN_BOARD, periodKey } from './boards.js'
+import { DEFAULT_RESET, dayEndsAt, gameDay, periodEndsAt } from './days.js'
 import { createCaller } from './api.js'
 import { errorMessage } from './errors.js'
 import { buildGame, type Game, type GameOptions } from './game.js'
@@ -18,10 +19,12 @@ import type {
     BoardSort,
     Connector,
     GameConfig,
+    GameReset,
     Item,
     ItemInput,
     OwnedItem,
     Payout,
+    PrizePeriod,
     ScoreWrites,
 } from './types.js'
 import {
@@ -61,7 +64,6 @@ const TX_HASH_PATTERN = /^0x[0-9a-fA-F]{64}$/
 const WEI_PATTERN = /^\d{1,60}$/
 const PAYOUTS_DEFAULT = 10
 const PAYOUTS_MAX = 50
-const DAY_SECONDS = 86_400
 const TEST_API_URL = 'http://localhost'
 const TEST_VERIFY_URL = 'http://localhost/verify'
 const TEST_STORAGE_KEY = 'fobogame:test'
@@ -108,7 +110,7 @@ export interface MockResponse {
 
 export interface MockApiOptions {
     /** Overrides for the game's settings. */
-    config?: Partial<Pick<GameConfig, 'game' | 'title' | 'tokenAddress' | 'ticker' | 'holdMin' | 'shares'>>
+    config?: Partial<Pick<GameConfig, 'game' | 'title' | 'tokenAddress' | 'ticker' | 'holdMin' | 'shares' | 'reset'>>
     /** Who may write scores and items: the game's pages ('client', the default) or only its server. */
     writes?: ScoreWrites
     /** The same as `writes` (its older name). */
@@ -137,7 +139,7 @@ export interface MockApiOptions {
 /** Everything the mock holds, as JSON (what `store` keeps). */
 export interface MockSnapshot {
     version: typeof SNAPSHOT_VERSION
-    settings: { title: string; holdMin: number; shares: number[] }
+    settings: { title: string; holdMin: number; shares: number[]; reset?: GameReset }
     writes: ScoreWrites
     boards: BoardDefinition[]
     items: Item[]
@@ -208,7 +210,18 @@ function generatedAvatar(seed: string): string {
 const isBetter = (sort: BoardSort, a: number, b: number): boolean => (sort === 'asc' ? a < b : a > b)
 
 /** A board as the API keeps it: its periods in the API's order, `isPrize` always said, no empty extras. */
-function storedBoard({ key, title, sort, mode, format, decimals, unit, periods, isPrize }: BoardDefinition) {
+function storedBoard({
+    key,
+    title,
+    sort,
+    mode,
+    format,
+    decimals,
+    unit,
+    periods,
+    isPrize,
+    prizePeriod,
+}: BoardDefinition) {
     const board: BoardDefinition = {
         key,
         title: title.trim(),
@@ -219,6 +232,7 @@ function storedBoard({ key, title, sort, mode, format, decimals, unit, periods, 
         ...(unit ? { unit } : {}),
         periods: BOARD_PERIODS.filter((period) => periods.includes(period)),
         isPrize: isPrize === true,
+        ...(isPrize === true ? { prizePeriod: prizePeriod ?? 'daily' } : {}),
     }
     return board
 }
@@ -253,6 +267,7 @@ export function createMockApi({
         ticker: 'TEST',
         holdMin: 100_000,
         shares: [60, 25, 15],
+        reset: DEFAULT_RESET,
         ...config,
     }
     const settings = { ...firstSettings }
@@ -289,12 +304,15 @@ export function createMockApi({
     /** The host the signed link text names: the page's, or 'localhost' outside a browser. */
     const pageHost = typeof window === 'undefined' ? 'localhost' : window.location.host
     const seconds = () => Math.floor(now() / 1000)
-    const today = () => new Date(now()).toISOString().slice(0, 10)
-    const dayEndsAt = () => (Math.floor(seconds() / DAY_SECONDS) + 1) * DAY_SECONDS
+    const today = () => gameDay(settings.reset, now())
     const nameOwner = (name: string) =>
         [...names].find(([, taken]) => taken.toLowerCase() === name.toLowerCase())?.[0] ?? null
     const findBoard = (key: string) => boardList.find((board) => board.key === key) ?? null
     const prizeBoard = () => boardList.find((board) => board.isPrize === true) ?? null
+    /** How often the prize is judged: the prize board's choice, daily without one. */
+    const prizePeriod = (): PrizePeriod => prizeBoard()?.prizePeriod ?? 'daily'
+    /** The prize round holding a game day: its period and the key its pot, winners and payouts go under. */
+    const prizeRound = (day: string) => ({ day, period: prizePeriod(), key: periodKey(prizePeriod(), day) })
 
     const playerOf = (address: string): PlayerState => {
         const known = players.get(address)
@@ -446,9 +464,10 @@ export function createMockApi({
 
     const winners = (day: string) => {
         const board = prizeBoard()
+        const round = prizeRound(day)
         const linked =
-            holds && board?.periods.includes('daily')
-                ? ranked(board, periodKey('daily', day)).flatMap((row) =>
+            holds && board?.periods.includes(round.period)
+                ? ranked(board, round.key).flatMap((row) =>
                       row.address === null ? [] : [{ name: names.get(row.address) ?? row.name, address: row.address }]
                   )
                 : []
@@ -457,7 +476,7 @@ export function createMockApi({
             return row ? [{ place: index + 1, ...row, sharePct }] : []
         })
         const unclaimedPct = settings.shares.slice(places.length).reduce((sum, share) => sum + share, 0)
-        return { day, winners: places, unclaimedPct }
+        return { ...round, winners: places, unclaimedPct }
     }
 
     const link = async (body: Record<string, unknown>, host: string): Promise<MockResponse> => {
@@ -524,13 +543,15 @@ export function createMockApi({
         return ok({ address: shorten(address), name: names.get(address) ?? null, holds, holdMin: settings.holdMin })
     }
 
-    /** A paid prize as the API answers it: under the wallet's username now, else the name it played under that day. */
+    /**
+     * A paid prize as the API answers it: under the wallet's username now, else the name it played under that round.
+     * @param day the round's key, as the payout keeps it
+     */
     const payoutName = (day: string, address: string): string | null => {
         const username = names.get(address)
         if (username !== undefined) return username
         for (const board of boardList) {
-            for (const row of rowsOf(board.key, periodKey('daily', day)).values())
-                if (row.address === address) return row.name
+            for (const row of rowsOf(board.key, day).values()) if (row.address === address) return row.name
         }
         return null
     }
@@ -552,7 +573,8 @@ export function createMockApi({
         // once per transaction: a repeat changes nothing
         if (!payouts.some((payout) => payout.txHash === hash)) {
             payouts.unshift({
-                day: day as string,
+                // a payout belongs to its prize round: a day, a week or a month
+                day: prizeRound(day as string).key,
                 place,
                 name: null,
                 address: address.toLowerCase(),
@@ -587,15 +609,16 @@ export function createMockApi({
         if (problem) return invalid(problem)
         const pot = { eth: amount(eth), usd: amount(usd) }
         if (pot.eth === null || pot.usd === null) return fail(400, 'eth and usd must be non-negative numbers')
-        pots.set(day as string, { eth: pot.eth, usd: pot.usd })
+        pots.set(prizeRound(day as string).key, { eth: pot.eth, usd: pot.usd })
         return readPot(day as string)
     }
 
     const readPot = (day: string): MockResponse => {
         const problem = dayProblem(day)
         if (problem) return invalid(problem)
-        const endsAt = Math.floor(Date.parse(`${day}T00:00:00Z`) / 1000) + DAY_SECONDS
-        return ok({ day, eth: 0, usd: 0, ...pots.get(day), endsAt })
+        const round = prizeRound(day)
+        const endsAt = Math.floor((periodEndsAt(settings.reset, round.period, day) ?? 0) / 1000)
+        return ok({ ...round, eth: 0, usd: 0, ...pots.get(round.key), endsAt })
     }
 
     const gameSettings = () => ({
@@ -605,6 +628,7 @@ export function createMockApi({
         writes,
         paysRewards,
         walletLink,
+        reset: settings.reset,
         boards: boardList,
         items: [...catalog.values()],
     })
@@ -616,6 +640,7 @@ export function createMockApi({
         if (body.holdMin !== undefined) settings.holdMin = Number(body.holdMin)
         if (Array.isArray(body.shares)) settings.shares = body.shares as number[]
         if (body.writes === 'client' || body.writes === 'server') writes = body.writes
+        if (body.reset !== undefined) settings.reset = body.reset as GameReset
         return ok(gameSettings())
     }
 
@@ -815,7 +840,7 @@ export function createMockApi({
                     boards: boardList,
                     apiVersion: API_VERSION,
                     paysRewards,
-                    dayEndsAt: dayEndsAt(),
+                    dayEndsAt: Math.floor(dayEndsAt(settings.reset, today()) / 1000),
                 })
             case 'GET /game':
                 return secret(() => ok(gameSettings()))
@@ -903,7 +928,7 @@ export function createMockApi({
 
     const snapshot = (): MockSnapshot => ({
         version: SNAPSHOT_VERSION,
-        settings: { title: settings.title, holdMin: settings.holdMin, shares: settings.shares },
+        settings: { title: settings.title, holdMin: settings.holdMin, shares: settings.shares, reset: settings.reset },
         writes,
         boards: boardList,
         items: [...catalog.values()],
@@ -933,6 +958,7 @@ export function createMockApi({
         if (config.title === undefined) settings.title = kept.settings.title
         if (config.holdMin === undefined) settings.holdMin = kept.settings.holdMin
         if (config.shares === undefined) settings.shares = kept.settings.shares
+        if (config.reset === undefined && kept.settings.reset) settings.reset = kept.settings.reset
         if (writesOption === undefined && scoreWrites === undefined) writes = kept.writes
         if (!firstBoards) boardList = withMain(kept.boards, MAIN_BOARD)
         if (!firstItems.length) for (const item of kept.items) catalog.set(item.key, item)

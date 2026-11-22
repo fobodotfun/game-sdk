@@ -273,16 +273,27 @@ describe('against the first Game API v1 (fobo.fun before boards)', () => {
 
         expect(await server.setPot({ day: TODAY, eth: 1.5, usd: 4500 })).toEqual({
             day: TODAY,
+            period: 'daily',
+            key: TODAY,
             eth: 1.5,
             usd: 4500,
             endsAt: DAY_ENDS_AT * 1000,
         })
-        expect(await game.pot()).toEqual({ day: TODAY, eth: 1.5, usd: 4500, endsAt: DAY_ENDS_AT * 1000 })
+        expect(await game.pot()).toEqual({
+            day: TODAY,
+            period: 'daily',
+            key: TODAY,
+            eth: 1.5,
+            usd: 4500,
+            endsAt: DAY_ENDS_AT * 1000,
+        })
         const watch = game.potWatch()
         expect(typeof watch.start).toBe('function')
 
         const winners = {
             day: TODAY,
+            period: 'daily',
+            key: TODAY,
             winners: [{ place: 1, name: 'Ace', address: WALLET, sharePct: 50 }],
             unclaimedPct: 50,
         }

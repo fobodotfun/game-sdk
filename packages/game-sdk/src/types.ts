@@ -1,6 +1,20 @@
 /** Who writes scores: the game's pages ('client') or only its own server with the secret key ('server'). */
 export type ScoreWrites = 'client' | 'server'
 
+/**
+ * When a game's day turns over: an hour on a time zone's clock. Its daily board, its weeks and months and its prize
+ * rounds all start from it. Midnight UTC until the game sets its own.
+ */
+export interface GameReset {
+    /** An IANA time zone, like 'UTC' or 'America/New_York' (clock changes are followed). */
+    timeZone: string
+    /** The hour the day starts, 0-23 on that zone's clock (17 = 5pm). */
+    hour: number
+}
+
+/** How often a game's prize is judged. */
+export type PrizePeriod = 'daily' | 'weekly' | 'monthly'
+
 /** A game's settings, as registered on fobo.fun. */
 export interface GameConfig {
     /** The game's id. */
@@ -24,7 +38,9 @@ export interface GameConfig {
     apiVersion: number
     /** Whether the game pays prizes (the creator turns this on at fobo.fun). */
     paysRewards: boolean
-    /** When today's board closes (ms since epoch, 00:00 UTC). */
+    /** When the game's day turns over. */
+    reset: GameReset
+    /** When today's board closes (ms since epoch): the game's next reset. */
     dayEndsAt: number
 }
 
@@ -40,6 +56,8 @@ export interface GameSettings {
     paysRewards: boolean
     /** Whether players can connect a wallet. Read-only: the creator sets it on fobo.fun. */
     walletLink: boolean
+    /** When the game's day turns over. */
+    reset: GameReset
     boards: BoardDefinition[]
     items: Item[]
 }
@@ -54,6 +72,11 @@ export interface GameSetup {
     prizeShares?: number[]
     /** Who may write scores and items: 'client' (the game's pages) or 'server' (only your backend). */
     writes?: ScoreWrites
+    /**
+     * When the game's day turns over, e.g. { timeZone: 'America/New_York', hour: 17 } for 5pm New York time.
+     * Midnight UTC until you set it. Rows already written stay where they are.
+     */
+    reset?: GameReset
     /** The game's leaderboards: the list replaces the one before. */
     boards?: BoardDefinition[]
     /** Items to add to the catalogue, or to update when their key exists. */
@@ -87,8 +110,13 @@ export interface BoardDefinition {
     unit?: string
     /** The periods it keeps a ranking for (at least one). */
     periods: BoardPeriod[]
-    /** Whether the daily prize is judged on this board. At most one board, and it must keep 'daily'. */
+    /** Whether the game's prize is judged on this board. At most one board. */
     isPrize?: boolean
+    /**
+     * For the prize board: how often the prize is judged ('daily' when left out). Must be one of the board's
+     * `periods`.
+     */
+    prizePeriod?: PrizePeriod
 }
 
 /** One row of a board. */
@@ -116,23 +144,28 @@ export interface Board {
     period: BoardPeriod
     /** The period's key: '2026-01-31', '2026-W05', '2026-01' or 'all'. */
     key: string
-    /** The UTC day asked for, YYYY-MM-DD. */
+    /** The game day asked for, YYYY-MM-DD (days turn over at the game's reset). */
     day: string
     top: BoardEntry[]
     /** The asked name's own row, when it has one. */
     you: BoardEntry | null
 }
 
-/** A day's prize pot. */
+/** A prize round's pot. A round is one of the game's prize periods: a day, a week or a month. */
 export interface Pot {
+    /** The game day asked for (today when none was), YYYY-MM-DD. */
     day: string
+    /** How often the game's prize is judged. */
+    period: PrizePeriod
+    /** The round's key: '2026-01-31', '2026-W05' or '2026-01'. */
+    key: string
     eth: number
     usd: number
-    /** When the day closes (ms since epoch). */
+    /** When the round closes (ms since epoch). */
     endsAt: number
 }
 
-/** A prize place on a finished day. */
+/** A prize place in a prize round. */
 export interface Winner {
     place: number
     name: string
@@ -141,7 +174,12 @@ export interface Winner {
 }
 
 export interface Winners {
+    /** The game day asked for, YYYY-MM-DD. */
     day: string
+    /** How often the game's prize is judged. */
+    period: PrizePeriod
+    /** The round's key: '2026-01-31', '2026-W05' or '2026-01'. */
+    key: string
     winners: Winner[]
     /** The share nobody qualified for. */
     unclaimedPct: number

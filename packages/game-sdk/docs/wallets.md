@@ -4,6 +4,8 @@ Players link a wallet so prizes have somewhere to go and names cannot be copied.
 
 **Linking is one signature of a short readable message. The SDK never sends a transaction, never asks for an approval, never switches network and never sees a private key.** The message names your game's site and a one-time code, nothing else.
 
+**Inside fobo.fun there is nothing to sign at all.** When your game runs in fobo.fun's frame, the player taps Link on fobo.fun's own prompt and fobo.fun vouches for the wallet they are signed in with there. Your game never opens a wallet, and the SDK needs no connector for it. The signature is only for players on your own site.
+
 ```js
 linkButton.onclick = async () => {
     const address = await game.link() // '0x1234…abcd'

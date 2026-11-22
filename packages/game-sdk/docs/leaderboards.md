@@ -77,7 +77,7 @@ await game.board({ board: 'kills', period: 'all', limit: 50, name: 'ACE' })
 - `at` is any day (`YYYY-MM-DD`) inside the period you want. Default: today.
 - `limit` is 1 to 100. Default: 10.
 - `name` adds that player's own row as `you`.
-- Days, weeks and months are UTC. Ties go to whoever got there first.
+- Days, weeks and months are UTC until you set the game's `reset` (see [Prizes](prizes.md)). Ties go to whoever got there first.
 
 ## Show scores the right way
 

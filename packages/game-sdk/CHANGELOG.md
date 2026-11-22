@@ -2,6 +2,15 @@
 
 What changed for games that use the SDK. Versions follow [semver](https://semver.org); see docs/versioning.md.
 
+## 0.2.0
+
+Nothing to change in a game on 0.1.x: it keeps working as it is.
+
+- **Prize period**: the prize board takes `prizePeriod: 'daily' | 'weekly' | 'monthly'` (default `'daily'`).
+- **Your own reset time**: `server.configure({ reset: { timeZone: 'America/New_York', hour: 17 } })` moves when the game's day, week and month turn over. Default `{ timeZone: 'UTC', hour: 0 }`.
+- `game.config()` answers `reset`; `game.pot()` and `game.winners()` answer the round's `period` and `key`.
+- **Linking inside fobo.fun needs no signature**: fobo.fun vouches for the wallet the player is signed in with. This works on every SDK version; the signature is only for players on your own site.
+
 ## 0.1.1
 
 - A shorter README, written as a reference, with the anti-cheat steps in it. No code changes.
