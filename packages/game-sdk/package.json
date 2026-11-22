@@ -10,7 +10,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/fobodotfun/fobo-game-sdk.git",
+        "url": "git+https://github.com/fobodotfun/game-sdk.git",
         "directory": "packages/game-sdk"
     },
     "keywords": [

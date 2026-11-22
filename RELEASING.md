@@ -37,7 +37,7 @@ That starts `.github/workflows/release.yml`, which:
 
 - **GitHub**: Settings → Environments → new environment `npm` → add required reviewers. Without reviewers the run does not wait.
 - **npm, first release**: a package must exist before trusted publishing can be switched on for it. Create a granular npm token that may publish to the `fobo` org, save it as the secret `NPM_TOKEN` **on the `npm` environment** (not the repo), and release. The workflow uses the token only when that secret is set.
-- **npm, after the first release**: on npmjs.com open the package → Settings → Trusted publisher → GitHub Actions, with repository `fobodotfun/fobo-game-sdk`, workflow `release.yml`, environment `npm`. Then delete the `NPM_TOKEN` secret and revoke the token. From then on the workflow publishes with a short-lived identity from GitHub (OIDC) and no token exists anywhere.
+- **npm, after the first release**: on npmjs.com open the package → Settings → Trusted publisher → GitHub Actions, with repository `fobodotfun/game-sdk`, workflow `release.yml`, environment `npm`. Then delete the `NPM_TOKEN` secret and revoke the token. From then on the workflow publishes with a short-lived identity from GitHub (OIDC) and no token exists anywhere.
 - **Provenance** (npm's proof of which repo and run built the package) is added only when the repository is public: npm cannot make it for a private one. Nothing to set; the workflow checks.
 
 ## Links while the repo is private
