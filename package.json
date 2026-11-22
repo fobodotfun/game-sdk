@@ -1,0 +1,36 @@
+{
+    "name": "fobo-game-sdk-workspace",
+    "private": true,
+    "type": "module",
+    "packageManager": "pnpm@12.10.1",
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "build": "pnpm --filter @fobo/game-sdk run build",
+        "typecheck": "pnpm -r run typecheck && tsc -p e2e/tsconfig.json && tsc -p scripts/tsconfig.json",
+        "test": "vitest run",
+        "test:e2e": "playwright test --config e2e/playwright.config.ts",
+        "conformance": "pnpm build && node --test e2e/conformance/run.ts",
+        "lint": "eslint . && prettier --check .",
+        "format": "prettier --write .",
+        "check": "pnpm lint && pnpm build && pnpm typecheck && pnpm test && pnpm test:e2e",
+        "release:check": "pnpm build && node scripts/release-check.ts"
+    },
+    "devDependencies": {
+        "@arethetypeswrong/cli": "^0.18.5",
+        "@eslint/js": "^10.0.1",
+        "@fobo/game-sdk": "workspace:*",
+        "@playwright/test": "^1.65.1",
+        "@types/node": "^26.6.6",
+        "eslint": "^10.15.0",
+        "happy-dom": "^21.0.4",
+        "prettier": "^3.10.1",
+        "publint": "^0.3.25",
+        "tsup": "^9.0.0",
+        "typescript": "6.0.3",
+        "typescript-eslint": "^8.73.0",
+        "viem": "^2.58.4",
+        "vitest": "^5.1.1"
+    }
+}

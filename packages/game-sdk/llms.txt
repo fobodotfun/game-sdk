@@ -1,0 +1,169 @@
+# @fobo/game-sdk
+
+> Leaderboards, players, items, saved data and daily prizes for browser games on fobo.fun. One npm package, no dependencies. This page is the whole SDK, written for an AI assistant adding it to a game.
+
+## Rules (read first)
+
+- ONE game object for the whole app, made once outside any component: `export const game = createGame({ apiKey: 'pk_...' })`.
+- `apiKey` is the PUBLIC key (`pk_...`). The secret key (`sk_...`) is only for `@fobo/game-sdk/server`, read from an environment variable. Never put it in page code, a repo or a prompt.
+- No key yet: `createGame()` with no `apiKey` is test mode (same API, a test Game Center inside the page, data kept in this browser). Going live is adding `apiKey`. Never invent a key. `game.isTest` says which mode it is.
+- Setup is code, not a dashboard. The fobo.fun form holds only the game's URL, picture, wallet connection on/off and pays rewards on/off; everything else (title, boards, items, prize rules, who may write) is one `server.configure(...)` call.
+- Start by playing the game on fobo.fun. In fobo.fun's frame `game.link()` uses the player's fobo.fun wallet: write no wallet code. Connectors are optional and only for the game's own site.
+- The SDK only ever asks a wallet to sign a short readable message. Never ask the player for a transaction, an approval or a network switch for this SDK.
+- A score sent from a page can be faked. A game that pays prizes needs `writes: 'server'` and a verifier (below).
+- Catch `GameError` and show its `message` to the player.
+- Do not set `apiUrl` or `frameOrigins` in production code.
+- Names: 1-16 characters (letters, digits, space, `_ . -`). Scores: whole numbers, zero or more. Days are UTC `YYYY-MM-DD`. Times are ms.
+
+## Imports
+
+    @fobo/game-sdk            createGame and everything a page needs
+    @fobo/game-sdk/server     createServerClient, createVerifier, board presets. Servers and scripts only: it throws in a page
+    @fobo/game-sdk/testing    createTestGame, createTestServer, createMockApi, testConnector, TEST_PUBLIC_KEY, TEST_SECRET_KEY
+    @fobo/game-sdk/format     shortAddress, formatScore, formatTime, formatCountdown, compactNumber, formatEth, formatUsd
+    @fobo/game-sdk/reown      reownConnector      (also install @reown/appkit @reown/appkit-adapter-ethers ethers)
+    @fobo/game-sdk/privy      usePrivyConnector   (also install @privy-io/react-auth react)
+    @fobo/game-sdk/wagmi      wagmiConnector      (also install @wagmi/core viem)
+    @fobo/game-sdk/browser    the one-file build (dist/browser/game-sdk.js)
+
+Install: `npm install @fobo/game-sdk`. No build step: `import { createGame } from 'https://unpkg.com/@fobo/game-sdk@0.1.1/dist/browser/game-sdk.js'` inside `<script type="module">`.
+
+## Smallest page
+
+    import { createGame, GameError } from '@fobo/game-sdk'
+
+    export const game = createGame({ apiKey: 'pk_...' })
+
+    const board = await game.submitRun({ name, score })    // when a run ends. board.top, board.you
+    const { top, you } = await game.board({ name })        // today's board
+    const address = await game.link()                      // from a button click. '0x1234…abcd'
+
+## Setup: one call, from a script or server
+
+    import { createServerClient, highScore, fastestTime } from '@fobo/game-sdk/server'
+
+    const server = createServerClient({ apiKey: 'pk_...', secretKey: process.env.FOBO_GAME_SECRET })
+
+    await server.configure({
+        title: 'Moon Lander',
+        holdMin: 100_000,               // tokens a wallet must hold to win a prize. 0 = anyone
+        prizeShares: [60, 25, 15],      // whole percent per place, adds up to 100, up to 10 places
+        writes: 'client',               // or 'server': only the game's server may post scores and give items
+        boards: [highScore('main', { isPrize: true }), fastestTime('lap', { title: 'Fastest lap' })],
+        items: [{ key: 'gold-ship', name: 'Gold ship', kind: 'skin', slot: 'skin' }],
+    })
+    await server.settings()             // read them back
+
+Safe to repeat; only the fields passed change. `boards` replaces the list (a board left out is hidden, its scores are kept; `main` always stays). `items` adds and updates by key.
+
+Board presets `(key, options?)`: `highScore`, `fastestTime`, `lowestScore`, `total`, `wins`, `longestStreak`, `survivalTime`, `rating`.
+Options: `title`, `periods` (any of 'daily' 'weekly' 'monthly' 'all'), `unit`, `format` ('number' | 'time' in ms | 'decimal'), `decimals`, `isPrize` (at most one board, must keep 'daily'). Up to 100 boards; keys are lowercase letters, digits, `-`, up to 32 characters.
+Item fields: `key`, `name`, `kind`, `image?` (https), `rarity?`, `slot?`, `isStackable?`, `maxQty?`, `meta?`. Up to 500 items.
+
+## Game (page)
+
+    game.config()                         -> { game, title, ticker, tokenAddress, holdMin, shares, writes, paysRewards, boards, dayEndsAt }
+    game.boards()                         -> BoardDefinition[]
+    game.board({ board?, period?, at?, limit?, name? })
+                                          -> { board, period, day, top: [{ rank, name, score, meta, linked, avatar, equipped, updatedAt }], you }
+    game.submitRun({ name, score, meta?, board?, run? })   the one to use: posts directly, or through verifyUrl when writes is 'server'
+    game.submitScore({ name, score, meta?, board? })       direct post only
+    game.startRun()                       -> { id, seed, expiresAt }   a ticket from the game's verifier
+    game.link()                           -> shortened address. Throws GameError code 'wallet' when cancelled
+    game.useConnector(connector)
+
+    game.wallet.address | name | holds | isFramed | isAvailable
+    game.wallet.onChange(fn) -> unsubscribe;  game.wallet.refresh();  game.wallet.unlink()
+
+    game.player.get()                     -> { name, avatar, avatarSource, isHolder, equipped }   needs a linked wallet
+    game.player.setName(name)             409 when taken
+    game.player.setAvatar(blob)           PNG, JPEG, WebP or GIF, at most 1 MB
+    game.player.removeAvatar()
+    game.players(['ACE', 'ZED'])          -> [{ name, avatar, equipped }]   up to 50 names
+
+    game.save.get(keys?) | set({ key: value }) | remove(keys)     needs a linked wallet. 64 keys, 16 KB per value, 64 KB in total
+    game.items.catalog() | mine() | equip(slot, keyOrNull)
+    game.items.grant(key, { qty?, meta? }) | consume(key, qty?)   only when writes is 'client'
+
+    game.pot()                            -> { day, eth, usd, endsAt }
+    game.winners(day?)                    -> { day, winners: [{ place, name, address, sharePct }], unclaimedPct }
+    game.payouts(limit?)                  -> { payouts: [...] }
+    game.potWatch().start((pot, msLeft) => {})   every second; .stop() to end
+
+## Server client
+
+    server.configure(setup) | settings()
+    server.submitScore({ name, score, meta?, board?, session? })   session puts it under the player's wallet
+    server.player(session)                -> the linked player behind a page's session
+    server.grantItem(name, key, { qty?, meta? }) | consumeItem(name, key, qty?) | playerItems(name) | removeItem(key)
+    server.getPlayerData(name, keys?) | setPlayerData(name, values) | removePlayerData(name, keys)
+    server.winners(day) | setPot({ day, eth, usd }) | recordPayout({ day, place, address, amountWei, txHash }) | payouts(limit?)
+    shareOfPot(potWei, sharePct)          -> bigint
+
+## Scores nobody can fake (needed for prize games)
+
+The page sends what the player did; the server plays the run again and posts the score itself. The game must be deterministic: `seededRandom(seed)` instead of `Math.random()`, count steps instead of reading the clock, one rules file loaded by page and server.
+
+Server:
+
+    import { createServerClient, createVerifier } from '@fobo/game-sdk/server'
+
+    await server.configure({ writes: 'server' })
+    const verifier = createVerifier({ server, replay: (seed, inputs) => playRun(seed, inputs) })   // returns score, or { score, meta }
+    // any web handler: verifier.handle(request) -> Response   (Workers, Bun, Deno, Next.js route handlers)
+
+Page:
+
+    const game = createGame({ apiKey: 'pk_...', verifyUrl: 'https://mygame.xyz/verify' })
+    const ticket = await game.startRun()                          // the server picks the seed
+    const board = await game.submitRun({ name, score, run: { ticket: ticket.id, inputs } })
+
+Verifier options: `board` ('main'), `requireLink` (true), `requireHolder` (false), `ticketSeconds` (1800), `origins`, `store`.
+Each ticket works once, for the player it was given to. More than one server copy (Cloudflare Workers, serverless): pass `store: { put(ticket), take(id) }` where `take` returns and deletes in one step (for example SQL `DELETE ... RETURNING`).
+Never trust the page's score: work it out again from the inputs, and throw from `replay` on inputs the game would not accept.
+
+## Wallets on the game's own site (optional)
+
+Default: the wallet in the browser. For more, one connector:
+
+    import { reownConnector } from '@fobo/game-sdk/reown'
+    game.useConnector(reownConnector({ projectId, metadata: { name, description, url, icons } }))
+
+    import { usePrivyConnector } from '@fobo/game-sdk/privy'     // React, inside <PrivyProvider>
+    usePrivyConnector(game)
+
+    import { wagmiConnector } from '@fobo/game-sdk/wagmi'        // wagmi, RainbowKit, ConnectKit, Dynamic
+    game.useConnector(wagmiConnector({ config, openConnect }))
+
+    import { eip1193Connector } from '@fobo/game-sdk'            // any EIP-1193 provider
+    game.useConnector(eip1193Connector(provider))
+
+    // anything else: { sign(message) -> Promise<{ address, signature }> }   (personal_sign of the text, unchanged)
+
+A connector imported without its wallet library fails with `Cannot find package '<library>'`: install that library.
+
+## Errors
+
+`GameError`: `code` ('http' | 'network' | 'timeout' | 'bad_response' | 'config' | 'input' | 'wallet'), `status` (HTTP status), `apiCode` ('unknown_board' | 'unknown_period' | 'unknown_item' | 'unknown_player' | 'wrong_slot' | 'already_owned' | 'over_max' | 'not_enough' | 'too_large' | 'server_writes_only'), `message` (for the player).
+
+## Testing
+
+    const game = createGame()                                      // no apiKey: test mode. Warns once in the console
+    const game = createGame({ test: { boards, items, writes, holds: true, paysRewards: true } })
+    const game = createGame({ test: { replay: playRun } })         // the verifier flow too, with no server
+    game.isTest                                                    // true in test mode
+    game.resetTestData()                                           // wipes the test data (a no-op on a live game)
+
+Test data is kept in the browser's localStorage (under `storageKey`, default 'fobogame:test'), so it is still there after a reload; in Node, or when storage is blocked, it stays in memory. `test` is ignored once `apiKey` is set.
+
+    import { createTestGame, createTestServer } from '@fobo/game-sdk/testing'
+
+    const game = createTestGame({ boards, items })                 // unit tests: the same game, in memory only, fresh each time
+    const server = createTestServer()                              // the server client with no keys and no network
+
+`createServerClient` has no default test mode: with no `secretKey` it throws a 'config' GameError.
+
+## More
+
+Guides: inside the package at node_modules/@fobo/game-sdk/docs, or https://unpkg.com/@fobo/game-sdk@0.1.1/docs/leaderboards.md (leaderboards, players, items, saved-data, anti-cheat, wallets, prizes, errors, versioning; api-v1.md is the HTTP contract).
+Help: @fobodev on X.

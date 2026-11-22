@@ -1,0 +1,13 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Test game</title>
+<script type="module">
+    // A game with no build step: the SDK's one-file build, pointed at the stand-in for fobo.fun.
+    import { createGame } from '/sdk/browser/game-sdk.js'
+
+    window.game = createGame({
+        apiKey: 'pk_test_0000000000000000',
+        apiUrl: '{{FOBO_ORIGIN}}',
+        frameOrigins: ['{{FOBO_ORIGIN}}'],
+    })
+</script>

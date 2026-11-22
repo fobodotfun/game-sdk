@@ -1,0 +1,76 @@
+name: Release
+
+# Publishes @fobo/game-sdk to npm when a version tag (v0.1.0) is pushed. The job waits in the `npm` environment
+# until someone approves it there. Steps, and how to set this up: RELEASING.md.
+on:
+    push:
+        tags: ['v*']
+
+permissions:
+    contents: read
+
+concurrency:
+    group: release
+    cancel-in-progress: false
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        environment: npm
+        permissions:
+            contents: read
+            # lets npm trust this run without a token (trusted publishing)
+            id-token: write
+        env:
+            PACKAGE_DIR: packages/game-sdk
+            PACKAGE_NAME: '@fobo/game-sdk'
+            # only needed for the very first publish, before trusted publishing can be switched on
+            HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+            IS_PUBLIC_REPO: ${{ github.event.repository.private == false }}
+        steps:
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+            - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+                  registry-url: https://registry.npmjs.org
+            # trusted publishing needs a recent npm
+            - run: npm install --global npm@latest
+            - run: pnpm install --frozen-lockfile
+            - run: pnpm exec playwright install --with-deps chromium
+            - run: pnpm check
+            - run: pnpm release:check
+
+            - name: Check the name and the tag
+              run: |
+                  name=$(node -p "require('./$PACKAGE_DIR/package.json').name")
+                  version=$(node -p "require('./$PACKAGE_DIR/package.json').version")
+                  if [ "$name" != "$PACKAGE_NAME" ]; then
+                      echo "::error::Refusing to publish '$name': this workflow only publishes $PACKAGE_NAME"
+                      exit 1
+                  fi
+                  if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+                      echo "::error::Tag $GITHUB_REF_NAME does not match $name $version (expected v$version)"
+                      exit 1
+                  fi
+
+            - name: Pack
+              run: |
+                  mkdir -p "$RUNNER_TEMP/pack"
+                  cd "$PACKAGE_DIR"
+                  pnpm pack --pack-destination "$RUNNER_TEMP/pack"
+                  echo "TARBALL=$(ls "$RUNNER_TEMP"/pack/*.tgz)" >> "$GITHUB_ENV"
+                  # a proof of where the package was built can only be made for a public repo
+                  if [ "$IS_PUBLIC_REPO" = "true" ]; then echo "PROVENANCE=--provenance" >> "$GITHUB_ENV"; fi
+
+            - name: Publish (trusted publishing, no token)
+              if: env.HAS_NPM_TOKEN != 'true'
+              run: npm publish "$TARBALL" --access public $PROVENANCE
+
+            - name: Publish (first release, with the NPM_TOKEN secret)
+              if: env.HAS_NPM_TOKEN == 'true'
+              run: npm publish "$TARBALL" --access public $PROVENANCE
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

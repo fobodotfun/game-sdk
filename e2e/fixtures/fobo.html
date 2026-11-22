@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>fobo.fun stand-in</title>
+<iframe id="game" src="{{GAME_ORIGIN}}/" width="480" height="320"></iframe>
+<script type="module">
+    // The framing page's side of the protocol, as fobo.fun does it: it builds the signed text itself from the
+    // shared protocol module and only ever talks to the frame it opened.
+    import { FEATURE_LINK, LINK_NONCE_PATTERN, linkMessage, MSG } from '/sdk/protocol.js'
+
+    const frame = document.getElementById('game')
+    const gameOrigin = new URL(frame.src).origin
+    const walletSays = new URLSearchParams(location.search).get('wallet') ?? 'yes'
+
+    window.addEventListener('message', async (event) => {
+        if (event.source !== frame.contentWindow || event.origin !== gameOrigin) return
+        const reply = (message) => frame.contentWindow.postMessage(message, gameOrigin)
+        const { type, nonce, host } = event.data ?? {}
+        if (type === MSG.READY) return reply({ type: MSG.HOST, features: [FEATURE_LINK] })
+        if (type !== MSG.LINK_REQUEST) return
+        const isValid = host === new URL(gameOrigin).host && typeof nonce === 'string' && LINK_NONCE_PATTERN.test(nonce)
+        if (!isValid) return reply({ type: MSG.LINK_RESULT, nonce, error: 'failed' })
+        if (walletSays === 'no') return reply({ type: MSG.LINK_RESULT, nonce, error: 'cancelled' })
+        const response = await fetch('/wallet/sign', {
+            method: 'POST',
+            body: JSON.stringify({ message: linkMessage(host, nonce) }),
+        })
+        reply({ type: MSG.LINK_RESULT, nonce, ...(await response.json()) })
+    })
+</script>

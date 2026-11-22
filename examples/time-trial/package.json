@@ -1,0 +1,11 @@
+{
+    "name": "example-time-trial",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "node server.js"
+    },
+    "dependencies": {
+        "@fobo/game-sdk": "workspace:*"
+    }
+}

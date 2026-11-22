@@ -1,0 +1,11 @@
+{
+    "name": "example-plain-html",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "node serve.js"
+    },
+    "dependencies": {
+        "@fobo/game-sdk": "workspace:*"
+    }
+}

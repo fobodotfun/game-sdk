@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Tap Rush</title>
+        <style>
+            body {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                margin: 0;
+                padding: 40px 16px;
+                background: #080b0d;
+                color: #e7ecea;
+                font:
+                    16px/1.4 system-ui,
+                    sans-serif;
+            }
+            button,
+            input {
+                padding: 10px 20px;
+                border: 1px solid #2a3236;
+                border-radius: 5px;
+                background: #12181b;
+                color: inherit;
+                font: inherit;
+            }
+            #tap {
+                width: 220px;
+                height: 220px;
+                border-radius: 50%;
+                border-color: #5cffe4;
+                font-size: 2em;
+            }
+            ol {
+                width: 260px;
+                padding-left: 24px;
+            }
+            li span {
+                float: right;
+            }
+            #status {
+                min-height: 1.4em;
+                color: #9a9aa0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Tap Rush</h1>
+        <div id="pot"></div>
+        <input id="name" maxlength="16" placeholder="Your name" />
+        <button id="tap">START</button>
+        <div id="status"></div>
+        <button id="link">Link wallet</button>
+        <ol id="board"></ol>
+
+        <script type="module">
+            import { createGame, formatCountdown, formatEth, GameError } from './sdk.js'
+
+            // No key needed to try this: with no apiKey the game runs in test mode, in this browser.
+            // With your key: createGame({ apiKey: 'pk_...' }).
+            const game = createGame()
+
+            const RUN_MS = 5000
+            const $ = (id) => document.getElementById(id)
+            let taps = 0
+            let endsAt = 0
+
+            const say = (text) => ($('status').textContent = text)
+
+            /** Shows an SDK error to the player; anything else is a bug and goes to the console. */
+            function report(err) {
+                if (err instanceof GameError) return say(err.message)
+                console.error('[tap-rush]', err)
+                say('Something went wrong')
+            }
+
+            async function showBoard() {
+                const { top } = await game.board()
+                $('board').replaceChildren(
+                    ...top.map(({ name, score }) => {
+                        const row = document.createElement('li')
+                        const points = document.createElement('span')
+                        points.textContent = score
+                        row.append(name, points)
+                        return row
+                    })
+                )
+            }
+
+            async function finish() {
+                $('tap').textContent = 'START'
+                try {
+                    const { you } = await game.submitRun({ name: $('name').value.trim() || 'ANON', score: taps })
+                    say(`${taps} taps. You are #${you.rank} today.`)
+                    await showBoard()
+                } catch (err) {
+                    report(err)
+                }
+            }
+
+            $('tap').onclick = () => {
+                if (Date.now() > endsAt) {
+                    taps = 0
+                    endsAt = Date.now() + RUN_MS
+                    setTimeout(finish, RUN_MS)
+                    say('Go!')
+                }
+                $('tap').textContent = ++taps
+            }
+
+            $('link').onclick = async () => {
+                try {
+                    await game.link()
+                } catch (err) {
+                    report(err)
+                }
+            }
+
+            game.wallet.onChange(() => {
+                $('link').textContent = game.wallet.address ?? 'Link wallet'
+                if (game.wallet.name) $('name').value = game.wallet.name
+            })
+
+            game.potWatch().start((pot, msLeft) => {
+                $('pot').textContent = pot ? `Today's pot: ${formatEth(pot.eth)} ETH · ${formatCountdown(msLeft)}` : ''
+            })
+
+            try {
+                await showBoard()
+            } catch (err) {
+                report(err)
+            }
+        </script>
+    </body>
+</html>

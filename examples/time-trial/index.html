@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Time trial</title>
+        <!-- lets rules.js use the same import on the page and on the server -->
+        <script type="importmap">
+            { "imports": { "@fobo/game-sdk": "/sdk.js" } }
+        </script>
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                max-width: 420px;
+                margin: 0 auto;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            pre {
+                font-size: 1.4em;
+                line-height: 1.1;
+                text-align: center;
+            }
+            .row {
+                display: flex;
+                gap: 6px;
+            }
+            button,
+            input {
+                font-size: 1em;
+                padding: 6px 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Time trial</h1>
+        <p>Dodge the rocks with ← and →. Each rock costs time. Fastest run wins.</p>
+        <div class="row">
+            <input id="name" maxlength="16" placeholder="Your name" />
+            <button id="link">Link wallet</button>
+            <button id="start" disabled>Start</button>
+        </div>
+        <div class="row">
+            <button id="left">←</button>
+            <button id="right">→</button>
+        </div>
+        <pre id="road"></pre>
+        <p id="status"></p>
+        <h2>Fastest runs</h2>
+        <ol id="board"></ol>
+        <p id="badges"></p>
+
+        <script type="module">
+            import { createGame, formatScore, testConnector, GameError } from '@fobo/game-sdk'
+            import config from '/config.js'
+            import { HIT_TICKS, LANES, ROWS, START_LANE, TICK_MS, makeTrack, playRun } from '/rules.js'
+
+            const BOARD = 'run'
+            const VIEW_ROWS = 8
+            const $ = (id) => document.getElementById(id)
+
+            const game = createGame({
+                apiKey: config.apiKey,
+                verifyUrl: '/verify',
+                // offline there is no fobo.fun to talk to: this page's own server stands in, with a pretend wallet
+                ...(config.isOffline ? { apiUrl: location.origin, connector: testConnector() } : {}),
+            })
+
+            let lane = START_LANE
+
+            function draw(track, row) {
+                const lines = []
+                for (let ahead = VIEW_ROWS - 1; ahead >= 0; ahead--) {
+                    const at = row + ahead
+                    const cells = Array.from({ length: LANES }, (_, cell) => {
+                        if (ahead === 0 && cell === lane) return '🚗'
+                        return track[at] === cell ? '🪨' : '⬛'
+                    })
+                    lines.push(at < ROWS ? cells.join('') : '🏁🏁🏁')
+                }
+                $('road').textContent = lines.join('\n')
+            }
+
+            async function showBoard() {
+                const definition = (await game.boards()).find((board) => board.key === BOARD)
+                const { top } = await game.board({ board: BOARD })
+                $('board').replaceChildren(
+                    ...top.map((entry) => {
+                        const li = document.createElement('li')
+                        li.textContent = `${entry.name}  ${formatScore(definition, entry.score)}`
+                        return li
+                    })
+                )
+                if (!game.wallet.address) return
+                const mine = await game.items.mine()
+                $('badges').textContent = mine.some((item) => item.key === 'clean-run') ? 'Badge: Clean run' : ''
+            }
+
+            /** Plays the run on screen and resolves with the lane taken at each row. */
+            function play(track) {
+                return new Promise((resolve) => {
+                    const lanes = []
+                    let wait = 0
+                    lane = START_LANE
+                    const timer = setInterval(() => {
+                        // hitting a rock stalls the car: the same ticks the rules add to the time
+                        if (wait > 0) return void (wait -= 1)
+                        const row = lanes.length
+                        lanes.push(lane)
+                        if (track[row] === lane) wait = HIT_TICKS
+                        draw(track, row + 1)
+                        if (lanes.length === ROWS) {
+                            clearInterval(timer)
+                            resolve(lanes)
+                        }
+                    }, TICK_MS)
+                })
+            }
+
+            async function run() {
+                $('start').disabled = true
+                try {
+                    // 1. a ticket from our server: its seed decides the track
+                    const ticket = await game.startRun()
+                    const lanes = await play(makeTrack(ticket.seed))
+                    // 2. the page works out its time with the same rules the server will use
+                    const { score, meta } = playRun(ticket.seed, lanes)
+                    // 3. the server replays the lanes and posts the time itself
+                    await game.submitRun({
+                        name: $('name').value.trim(),
+                        score,
+                        meta,
+                        run: { ticket: ticket.id, inputs: lanes },
+                    })
+                    $('status').textContent = `Finished in ${formatScore({ format: 'time' }, score)}`
+                    await showBoard()
+                } catch (err) {
+                    console.error('[time-trial]', err)
+                    $('status').textContent = err instanceof GameError ? err.message : 'Something went wrong'
+                }
+                $('start').disabled = false
+            }
+
+            $('link').onclick = async () => {
+                try {
+                    // one signature of a readable text. Never a transaction.
+                    $('status').textContent = `Linked ${await game.link()}`
+                    $('start').disabled = false
+                } catch (err) {
+                    console.error('[time-trial]', err)
+                    $('status').textContent = err instanceof GameError ? err.message : 'Could not link'
+                }
+            }
+            $('start').onclick = run
+            const steer = (by) => (lane = Math.max(0, Math.min(LANES - 1, lane + by)))
+            $('left').onclick = () => steer(-1)
+            $('right').onclick = () => steer(1)
+            addEventListener('keydown', (event) => {
+                if (event.key === 'ArrowLeft') steer(-1)
+                if (event.key === 'ArrowRight') steer(1)
+            })
+
+            if (game.wallet.address) $('start').disabled = false
+            draw(makeTrack('preview'), 0)
+            try {
+                await showBoard()
+            } catch (err) {
+                console.error('[time-trial]', err)
+            }
+        </script>
+    </body>
+</html>

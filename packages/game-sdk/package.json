@@ -1,0 +1,144 @@
+{
+    "name": "@fobo/game-sdk",
+    "version": "0.1.1",
+    "description": "Leaderboards, player profiles, saved data, items and wallet linking for games on fobo.fun",
+    "license": "MIT",
+    "author": "The fobo.fun team (https://fobo.fun)",
+    "homepage": "https://www.npmjs.com/package/@fobo/game-sdk",
+    "bugs": {
+        "url": "https://x.com/fobodev"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fobodotfun/fobo-game-sdk.git",
+        "directory": "packages/game-sdk"
+    },
+    "keywords": [
+        "fobo",
+        "fobo.fun",
+        "game",
+        "games",
+        "leaderboard",
+        "highscore",
+        "wallet",
+        "anti-cheat",
+        "sdk",
+        "reown",
+        "walletconnect",
+        "privy",
+        "wagmi"
+    ],
+    "type": "module",
+    "sideEffects": [
+        "./dist/server.js"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "./protocol": {
+            "types": "./dist/protocol.d.ts",
+            "default": "./dist/protocol.js"
+        },
+        "./server": {
+            "types": "./dist/server.d.ts",
+            "default": "./dist/server.js"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "default": "./dist/testing.js"
+        },
+        "./format": {
+            "types": "./dist/format.d.ts",
+            "default": "./dist/format.js"
+        },
+        "./reown": {
+            "types": "./dist/reown.d.ts",
+            "default": "./dist/reown.js"
+        },
+        "./privy": {
+            "types": "./dist/privy.d.ts",
+            "default": "./dist/privy.js"
+        },
+        "./wagmi": {
+            "types": "./dist/wagmi.d.ts",
+            "default": "./dist/wagmi.js"
+        },
+        "./browser": {
+            "types": "./dist/browser/game-sdk.d.ts",
+            "default": "./dist/browser/game-sdk.js"
+        },
+        "./browser/reown": {
+            "types": "./dist/reown.d.ts",
+            "default": "./dist/browser/reown.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "unpkg": "./dist/browser/game-sdk.js",
+    "jsdelivr": "./dist/browser/game-sdk.js",
+    "files": [
+        "dist",
+        "assets",
+        "docs/*.md",
+        "CHANGELOG.md",
+        "llms.txt"
+    ],
+    "scripts": {
+        "build": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\" && tsup",
+        "typecheck": "tsc -p tsconfig.json"
+    },
+    "peerDependencies": {
+        "@privy-io/react-auth": "^3.0.0",
+        "@reown/appkit": "^2.0.0",
+        "@reown/appkit-adapter-ethers": "^2.0.0",
+        "@wagmi/core": "^3.0.0",
+        "ethers": "^6.13.0",
+        "react": "^18.0.0 || ^19.0.0",
+        "viem": "^2.0.0"
+    },
+    "peerDependenciesMeta": {
+        "@privy-io/react-auth": {
+            "optional": true
+        },
+        "@reown/appkit": {
+            "optional": true
+        },
+        "@reown/appkit-adapter-ethers": {
+            "optional": true
+        },
+        "@wagmi/core": {
+            "optional": true
+        },
+        "ethers": {
+            "optional": true
+        },
+        "react": {
+            "optional": true
+        },
+        "viem": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@privy-io/react-auth": "3.52.0",
+        "@reown/appkit": "2.0.0",
+        "@reown/appkit-adapter-ethers": "2.0.0",
+        "@testing-library/react": "^16.0.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "@wagmi/core": "3.6.9",
+        "ethers": "6.17.0",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+        "viem": "2.58.4"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
